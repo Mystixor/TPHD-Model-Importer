@@ -3,7 +3,7 @@ This Python 3 (!!!) tool creates basic GMX files (TPHD 3d models) from CSV files
 
 WARNING!
 
-It is important to note, that the GMX format does not support seams on a model for UV maps, so whenever you have loose parts on your UV map they need to be loose parts on the actual mesh as well!
+It is important to note, that the GMX format does not support seams on a model for UV maps, so whenever you have loose parts on your UV map they need to be loose parts in the actual mesh as well!
 
 
 Instructions:

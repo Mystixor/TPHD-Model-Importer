@@ -23,9 +23,9 @@ def INDX(faces):
 	size = 8 + len(faces)*3*2
 	INDX += struct.pack('>I', size)
 	for l in range(len(faces)):
-		indx =  struct.pack('>H', int(float(faces[l][0])) - 1)
+		indx =  struct.pack('>H', int(float(faces[l][2])) - 1)
 		indx += struct.pack('>H', int(float(faces[l][1])) - 1)
-		indx += struct.pack('>H', int(float(faces[l][2])) - 1)
+		indx += struct.pack('>H', int(float(faces[l][0])) - 1)
 		INDX += indx
 	return INDX
 

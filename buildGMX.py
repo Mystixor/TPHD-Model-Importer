@@ -68,16 +68,26 @@ def PADX(size):
 
 def build():
 	gmx2 = b'GMX2\x00\x00\x00\x08'
-	pad0 = PADX(24)
-	mesh = MESH(40, 32, len(polys[0].verts), len(polys[0].faces))
-	pad1 = PADX(56)
-	vert = VERT(polys[0].verts, polys[0].normals, polys[0].uv0)
-	pad2 = PADX(24)
-	indx = INDX(polys[0].faces)
-	vmap = VMAP(polys[0].verts)
+	
+	content = gmx2
+	
+	for z in range(len(polys)):
+		pad0 = PADX(24)
+		mesh = MESH(40, 32, len(polys[z].verts), len(polys[z].faces))
+		content += pad0 + mesh
+		if(len(polys[z].verts)):
+			pad1 = PADX(56)
+			vert = VERT(polys[z].verts, polys[z].normals, polys[z].uv0)
+			content += pad1 + vert
+		if(len(polys[z].faces)):
+			pad2 = PADX(24)
+			indx = INDX(polys[z].faces)
+			vmap = VMAP(polys[z].verts)
+			content += pad2 + indx + vmap
+	
 	endx = b'ENDX\x00\x00\x00\x08'
 	
-	content = gmx2 + pad0 + mesh + pad1 + vert + pad2 + indx + vmap + endx
+	content += endx
 	
 	writeTo(sys.argv[1].replace(".csv", ".gmx"), 0, content)
 

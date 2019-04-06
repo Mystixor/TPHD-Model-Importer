@@ -1,5 +1,5 @@
 # TPHD-Model-Importer
-This Python 3 (!!!) tool creates basic GMX files (TPHD 3d models) from CSV files (it is a common format for BFRES imports, I might add support for more in the future).
+This Python 3 (!!!) tool (fork) creates basic GMX files (TPHD 3d models) from Collada (.dae) files.
 
 WARNING!
 
@@ -7,5 +7,7 @@ It is important to note, that the GMX format does not support seams on a model f
 
 
 Instructions:
+
+"python -m pip install numpy" (Only on the first time, if you did not have Numpy installed yet)
 
 "python buildGMX.py your-csv-file.csv"

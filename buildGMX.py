@@ -1,5 +1,8 @@
 import sys, os, struct
 
+from array import *
+from collada import *
+
 polys = []
 
 def writeTo(filename, position, content):
@@ -20,12 +23,12 @@ def VMAP(verts):
 
 def INDX(faces):
 	INDX = b'INDX'
-	size = 8 + len(faces)*3*2
+	size = 8 + len(faces)*2
 	INDX += struct.pack('>I', size)
-	for l in range(len(faces)):
-		indx =  struct.pack('>H', int(float(faces[l][2])) - 1)
-		indx += struct.pack('>H', int(float(faces[l][1])) - 1)
-		indx += struct.pack('>H', int(float(faces[l][0])) - 1)
+	for l in range(int(len(faces)/3)):
+		indx =  struct.pack('>H', int(float(faces[l * 3 + 2])))
+		indx += struct.pack('>H', int(float(faces[l * 3 + 1])))
+		indx += struct.pack('>H', int(float(faces[l * 3 + 0])))
 		INDX += indx
 	return INDX
 
@@ -52,7 +55,7 @@ def MESH(size, vertSize, vertCount, indxCount):
 	MESH += struct.pack('>H', vertSize)
 	MESH += struct.pack('>H', vertCount)
 	MESH += struct.pack('>I', 0)
-	MESH += struct.pack('>I', indxCount * 3)
+	MESH += struct.pack('>I', indxCount)
 	MESH += struct.pack('>I', 0)
 	MESH += struct.pack('>I', 0)
 	MESH += struct.pack('>I', 0)
@@ -89,7 +92,7 @@ def build():
 	
 	content += endx
 	
-	writeTo(sys.argv[1].replace(".csv", ".gmx"), 0, content)
+	writeTo(sys.argv[1].replace(".dae", ".model"), 0, content)
 
 def main():
 	class poly(object):
@@ -107,86 +110,128 @@ def main():
 			self.boneI = []
 			self.boneW = []
 
-	curPoly = 0
+	global mesh
 	
 	ii = 0
-	for line in f:
-		if line.startswith("Obj Name"):
-			if(ii > 0):
-				polys.append(data)
-			data = poly()
-			data.name = line.split(":")[1].replace("\n", "")
-			ii += 1
-			SubType = 0
-		elif line.startswith("tex_Array:"):
-			pass
-		elif line.startswith("Bone_Suport"):
-			pass
-		elif line.startswith("Color_Suport"):
-			colorEnable = True
-		elif line.startswith("UV_Num:"):
-			numUVs = int(line.split(":")[1].replace("\n", ""))
-		elif line.startswith("vert_Array"):
-			Type = 1
-		elif line.startswith("face_Array"):
-			Type = 2
-		elif line.startswith("bone_Array"):
-			Type = 3
-		else:
-			line = line.replace("\n", "").replace("\r", "").split(",")
-			if(Type == 1):
-				if(SubType == 0):
-					data.verts.append(line)
-					SubType += 1
-				elif(SubType == 1):
-					data.normals.append(line)
-					SubType += 1
-				elif(SubType == 2):
-					data.colors.append(line)
-					SubType += 1
-				elif(SubType == 3):
-					data.uv0.append(line)
-					if(numUVs == 1):SubType = 0
-					else:SubType += 1
-				elif(SubType == 4):
-					data.uv1.append(line)
-					if(numUVs == 2):SubType = 0
-					else:SubType += 1
-				elif(SubType == 5):
-					data.uv2.append(line)
-					if(numUVs == 3):SubType = 0
-					else:SubType += 1
-				elif(SubType == 6):
-					data.uv3.append(line)
-					SubType = 0
-			elif(Type == 2):
-				data.faces.append(line)
-			elif(Type == 3):
-				line.pop()
-				bbs = 0
-				StrNames = []
-				BonArry = []
-				for obj in line:
-						
-						if(bbs == 0):
-								StrNames.append(obj)
-								bbs += 1
-						else:
-								BonArry.append(float(obj))
-								bbs = 0
-				data.boneName.append(StrNames)
-				data.boneW.append(BonArry)
-				
+	
+	for i in range(len(mesh.geometries)):
+		triset = mesh.geometries[i].primitives[0]
+		
+		vertex = triset.vertex.tolist()
+		normal = triset.normal
+		texcoordset = triset.texcoordset[0].tolist()
+		indices = list(triset.vertex_index)
+		
+		Normals = []
+		for k in range(len(vertex)):
+			nrm = [0.0, 0.0, 0.0]
+			iii = 0
+			usedNRMs = []
+			for vertIdx in indices:
+				if(vertIdx == k and triset.normal_index[iii] not in usedNRMs):
+					nrm += normal[triset.normal_index[iii]]
+					usedNRMs.append(triset.normal_index[iii])
+				iii += 1
+			Normals.append(list(nrm))
+		
+		uniqueVerts = []
+		correctIndices = []
+		for i in range(len(indices)):
+			vert = [vertex[indices[i]], Normals[indices[i]], texcoordset[triset.texcoord_indexset[0][i]]]
+			if(vert not in uniqueVerts):
+				uniqueVerts.append(vert)
+				if(i not in correctIndices):
+					try:
+						correctIndices.append(max(correctIndices) + 1)
+					except:
+						correctIndices.append(0)
+				else:
+					correctIndices.append(indices[i])
+			else:
+				#	'X' is inserted so the lengths of uniqueVerts and correctIndices stay the same
+				uniqueVerts.append('X')
+				correctIndices.append(correctIndices[uniqueVerts.index(vert)])
+		
+		correctVerts = []
+		correctNormals = []
+		correctTexCoords = []
+		
+		for j in range(len(uniqueVerts)):
+			#	Here 'X' is filtered out again, as it is no longer needed for differentiation
+			if(uniqueVerts[j] is not 'X'):
+				correctVerts.append(uniqueVerts[j][0])
+				correctNormals.append(uniqueVerts[j][1])
+				correctTexCoords.append(uniqueVerts[j][2])
+		
+		#print(correctVerts)
+		#print(correctNormals)
+		#print(correctTexCoords)
+		#print(correctIndices)
+		
+		'''
+		correctVerts = []
+		for vertIdx in triset.vertex_index:
+			correctVerts.append(vertex[vertIdx])
+		
+		correctNormals = []
+		Normals = []
+		for k in range(len(list(vertex))):
+			nrm = [0.0, 0.0, 0.0]
+			iii = 0
+			usedNRMs = []
+			for vertIdx in triset.vertex_index:
+				if(vertIdx == k and triset.normal_index[iii] not in usedNRMs):
+					nrm += normal[triset.normal_index[iii]]
+					usedNRMs.append(triset.normal_index[iii])
+				iii += 1
+			Normals.append(list(nrm))
+		for vertIdx in triset.vertex_index:
+			correctNormals.append(Normals[vertIdx])
+		
+		correctTexCoords = []
+		for texCoordIdx in triset.texcoord_indexset[0]:
+			correctTexCoords.append(texcoordset[texCoordIdx])
+		
+		correctIndices = []
+		for index in range(int(len(indices)/3)):
+			correctIndices.append([indices[index * 3], indices[index * 3 + 1], indices[index * 3 + 2]])
+		'''
+		
+		if(ii > 0):
+			polys.append(data)
+		data = poly()
+		ii += 1
+		
+		#print(triset.vertex_index)
+		#print(triset.normal_index)
+		#print(triset.texcoord_indexset[0])
+		
+		data.verts = correctVerts
+		data.normals = correctNormals
+		data.uv0 = correctTexCoords
+		data.faces = correctIndices
+	
 	polys.append(data)
-
+	
+	#print("Verts: ")
+	#print(polys[0].verts)
+	#print("Normals: ")
+	#print(polys[0].normals)
+	#print("UVs: ")
+	#print(polys[0].uv0)
+	#print("Indices: ")
+	#print(polys[0].faces)
+	
 	build()
 
 
 if __name__ == "__main__":
 	if len(sys.argv) != 2:
-		print('Insufficient arguments. Please supply one CSV model.')
+		print('Insufficient arguments. Please supply one DAE model.')
 		exit()
 	else:
-		f = open(sys.argv[1])
+		global mesh
+		#f = open(sys.argv[1])
+		mesh = Collada(sys.argv[1])
 		main()
 		print("I would think it worked.")
